@@ -1,0 +1,501 @@
+// Gym Challenge App — local SQLite schema (zero-setup).
+// String fields are used in place of Postgres enums (SQLite has no enum type).
+// Designed so a later move to Supabase/Postgres + RLS is a clean swap.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------- Auth / Profiles ----------
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  isAdmin      Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  profile      Profile?
+  sessions     Session[]
+
+  referenceLifts UserReferenceLift[]
+  attempts       WorkoutAttempt[]
+  submissions    Submission[]        @relation("submitter")
+  verifications  Submission[]        @relation("verifier")
+
+  ownedGroups      Group[]        @relation("groupOwner")
+  groupMemberships GroupMember[]
+  sentInvites      GroupInvite[]  @relation("inviter")
+  notifications    Notification[]
+
+  badges          UserBadge[]
+  streak          Streak?
+  personalRecords PersonalRecord[]
+  challengePoints ChallengePointsLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Profile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username        String   @unique
+  displayName     String
+  gender          String   @default("unspecified") // male / female / unspecified
+  heightCm        Float?
+  bodyweightKg    Float?
+  experienceYears Float?
+  experienceTier  String   @default("novice") // deprecated — replaced by experienceClassId
+  xp              Int      @default(0)
+  level           Int      @default(1)
+  // Cumulative, lifetime challenge points (top-50 weight-class placements).
+  // Denormalized running total; ChallengePointsLog is the source of truth.
+  challengePointsTotal Int @default(0)
+  avatarId        String?
+  avatar          Avatar?  @relation(fields: [avatarId], references: [id])
+  preferredUnits  String   @default("kg") // kg / lb
+  createdAt       DateTime @default(now())
+
+  weightClassId     String?
+  weightClass       WeightCategory?  @relation(fields: [weightClassId], references: [id])
+  experienceClassId String?
+  experienceClass   ExperienceClass? @relation(fields: [experienceClassId], references: [id])
+
+  @@index([xp]) // leaderboard ordering
+  @@index([challengePointsTotal]) // challenge-points leaderboard ordering
+}
+
+// ---------- Exercise Library (shared by challenges + workouts) ----------
+
+model ExerciseLibrary {
+  id               String           @id @default(cuid())
+  name             String
+  instructions     String           @default("")
+  youtubeVideoId   String?
+  muscleGroup      String?
+  equipment        String?
+  movementStandard String?
+  tips             String?
+  status           String           @default("published") // draft / published / archived
+  createdAt        DateTime         @default(now())
+  setParts         WorkoutSetPart[]
+  challenges       Challenge[]
+}
+
+// ---------- Reference-lift catalogue ----------
+
+model ReferenceLift {
+  id          String @id @default(cuid())
+  name        String
+  description String @default("")
+  unit        String @default("kg")
+  status      String @default("active") // active / archived
+
+  userValues   UserReferenceLift[]
+  workoutLinks WorkoutReferenceLift[]
+  setParts     WorkoutSetPart[]
+}
+
+model UserReferenceLift {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referenceLiftId String
+  referenceLift   ReferenceLift @relation(fields: [referenceLiftId], references: [id], onDelete: Cascade)
+  weightKg        Float
+  recordedAt      DateTime      @default(now())
+
+  @@unique([userId, referenceLiftId])
+}
+
+// ---------- Structured Workouts (set-contains-parts model) ----------
+
+model WorkoutCategory {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?
+  imageRef     String? // icon emoji or image path
+  displayOrder Int       @default(0)
+  isActive     Boolean   @default(true)
+  workouts     Workout[]
+}
+
+model Workout {
+  id                  String   @id @default(cuid())
+  title               String
+  instructions        String   @default("")
+  roundingIncrementKg Float    @default(2.5)
+  status              String   @default("draft") // draft / published
+  categoryId          String?
+  category            WorkoutCategory? @relation(fields: [categoryId], references: [id])
+  backgroundImagePath String? // optional card background (local path / storage URL)
+  createdAt           DateTime @default(now())
+
+  referenceLifts WorkoutReferenceLift[]
+  sets           WorkoutSet[]
+  rankTiers      WorkoutRankTier[]
+  attempts       WorkoutAttempt[]
+
+  @@index([status])
+}
+
+model WorkoutReferenceLift {
+  id              String        @id @default(cuid())
+  workoutId       String
+  workout         Workout       @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  referenceLiftId String
+  referenceLift   ReferenceLift @relation(fields: [referenceLiftId], references: [id], onDelete: Cascade)
+  displayOrder    Int           @default(0)
+
+  @@unique([workoutId, referenceLiftId])
+}
+
+// The unit the user marks Success/Fail on. May contain 1..n parts.
+model WorkoutSet {
+  id           String  @id @default(cuid())
+  workoutId    String
+  workout      Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  setOrder     Int
+  label        String? // optional, e.g. "Drop set"
+  instructions String? // optional set-level note
+
+  parts   WorkoutSetPart[]
+  points  WorkoutSetPoints[]
+  results WorkoutSetResult[]
+}
+
+// Points stay at the SET level — the user completes the whole set, then scores.
+model WorkoutSetPoints {
+  id           String     @id @default(cuid())
+  workoutSetId String
+  workoutSet   WorkoutSet @relation(fields: [workoutSetId], references: [id], onDelete: Cascade)
+  difficulty   String // easy / hard / brutal
+  points       Int
+
+  @@unique([workoutSetId, difficulty])
+}
+
+// A segment within a set: its own exercise + reference lift + percentages.
+model WorkoutSetPart {
+  id              String          @id @default(cuid())
+  workoutSetId    String
+  workoutSet      WorkoutSet      @relation(fields: [workoutSetId], references: [id], onDelete: Cascade)
+  partOrder       Int
+  // The exercise supplies the description + demo video for the whole exercise box.
+  exerciseId      String
+  exercise        ExerciseLibrary @relation(fields: [exerciseId], references: [id])
+  // Optional per-part name, so one exercise box can label its parts individually
+  // (e.g. a "Pull-up / Bent-over row" superset). Falls back to the exercise name.
+  label           String?
+  referenceLiftId String
+  referenceLift   ReferenceLift   @relation(fields: [referenceLiftId], references: [id])
+  reps            String? // e.g. "8", "8–10", "AMRAP", "30s"
+  description     String          @default("")
+
+  percentages WorkoutSetPartPercentage[]
+  resultParts WorkoutSetResultPart[]
+}
+
+// Percentage per difficulty lives at the PART level.
+model WorkoutSetPartPercentage {
+  id               String         @id @default(cuid())
+  workoutSetPartId String
+  workoutSetPart   WorkoutSetPart @relation(fields: [workoutSetPartId], references: [id], onDelete: Cascade)
+  difficulty       String // easy / hard / brutal
+  percentage       Float
+  // Reps can differ per difficulty (e.g. easy 8 / hard 10 / brutal 12).
+  // Falls back to WorkoutSetPart.reps when null.
+  reps             String?
+
+  @@unique([workoutSetPartId, difficulty])
+}
+
+model WorkoutRankTier {
+  id           String  @id @default(cuid())
+  workoutId    String
+  workout      Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  name         String
+  icon         String  @default("🏅")
+  minPoints    Int
+  displayOrder Int     @default(0)
+
+  attempts WorkoutAttempt[]
+}
+
+model WorkoutAttempt {
+  id                 String           @id @default(cuid())
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutId          String
+  workout            Workout          @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  startedAt          DateTime         @default(now())
+  completedAt        DateTime?
+  totalPoints        Int              @default(0)
+  achievedRankTierId String?
+  achievedRankTier   WorkoutRankTier? @relation(fields: [achievedRankTierId], references: [id])
+  status             String           @default("in_progress") // in_progress / completed / abandoned
+  results            WorkoutSetResult[]
+
+  @@index([userId, status]) // hot path: profile + workouts best-per-workout
+  @@index([workoutId])
+}
+
+// Set-level result. Snapshots chosen difficulty + awarded points.
+model WorkoutSetResult {
+  id               String         @id @default(cuid())
+  workoutAttemptId String
+  workoutAttempt   WorkoutAttempt @relation(fields: [workoutAttemptId], references: [id], onDelete: Cascade)
+  workoutSetId     String?
+  workoutSet       WorkoutSet?    @relation(fields: [workoutSetId], references: [id], onDelete: SetNull)
+  chosenDifficulty String
+  outcome          String // success / fail
+  pointsAwarded    Int // snapshot
+  recordedAt       DateTime       @default(now())
+
+  parts WorkoutSetResultPart[]
+}
+
+// Per-part snapshot of the calculated working weight, so history is immutable.
+model WorkoutSetResultPart {
+  id                 String           @id @default(cuid())
+  workoutSetResultId String
+  workoutSetResult   WorkoutSetResult @relation(fields: [workoutSetResultId], references: [id], onDelete: Cascade)
+  workoutSetPartId   String?
+  workoutSetPart     WorkoutSetPart?  @relation(fields: [workoutSetPartId], references: [id], onDelete: SetNull)
+  calculatedWeightKg Float
+}
+
+// ---------- Competitive Challenges ----------
+
+model Season {
+  id         String      @id @default(cuid())
+  name       String
+  startsAt   DateTime
+  endsAt     DateTime
+  isActive   Boolean     @default(false)
+  challenges Challenge[]
+}
+
+model WeightCategory {
+  id           String       @id @default(cuid())
+  name         String
+  gender       String? // optional: male / female / null = any
+  minKg        Float?
+  maxKg        Float?
+  displayOrder Int          @default(0)
+  isActive     Boolean      @default(true)
+  profiles     Profile[]
+  submissions  Submission[]
+  pointsLog    ChallengePointsLog[]
+}
+
+model ExperienceClass {
+  id           String       @id @default(cuid())
+  name         String
+  displayOrder Int          @default(0)
+  isActive     Boolean      @default(true)
+  profiles     Profile[]
+  submissions  Submission[]
+}
+
+model Challenge {
+  id               String          @id @default(cuid())
+  exerciseId       String
+  exercise         ExerciseLibrary @relation(fields: [exerciseId], references: [id])
+  title            String
+  description      String          @default("")
+  movementStandard String? // optional override of the exercise's standard
+  demoYoutubeVideoId String? // challenge-specific demo; falls back to the exercise's video
+  unitLabel        String          @default("kg") // how raw_value is expressed: kg / reps / kg total / seconds / reps
+  challengeType    String          @default("max_weight") // max_weight / max_reps / tonnage / for_time / amrap
+  scoringType      String          @default("absolute") // absolute / relative_dots
+  startsAt         DateTime
+  endsAt           DateTime
+  isDaily          Boolean         @default(false)
+  status           String          @default("draft") // draft / published / closed / archived
+  finalizedAt      DateTime? // set when placements are computed and badges awarded
+  backgroundImagePath String? // optional card background (Supabase Storage URL)
+  seasonId         String?
+  season           Season?         @relation(fields: [seasonId], references: [id])
+  createdAt        DateTime        @default(now())
+  submissions      Submission[]
+  pointsLog        ChallengePointsLog[]
+
+  @@index([status, endsAt]) // live-window + finalization queries
+}
+
+model Submission {
+  id                    String    @id @default(cuid())
+  challengeId           String
+  challenge             Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User      @relation("submitter", fields: [userId], references: [id], onDelete: Cascade)
+  rawValue              Float
+  bodyweightAtAttemptKg Float?
+  computedScore         Float // raw comparable value (higher = better; for_time negated)
+  videoUrl              String?
+  verificationStatus    String    @default("unverified") // unverified / pending / verified / rejected
+  verifiedById          String?
+  verifiedBy            User?     @relation("verifier", fields: [verifiedById], references: [id])
+  verificationNotes     String?
+  syncedFromOffline     Boolean   @default(false)
+  videoIsPublic         Boolean   @default(false) // if true, the video link is visible to all users, not just admins
+  createdAt             DateTime  @default(now())
+
+  // Class snapshot at attempt time, so leaderboards filter stably.
+  weightClassId     String?
+  weightClass       WeightCategory?  @relation(fields: [weightClassId], references: [id])
+  experienceClassId String?
+  experienceClass   ExperienceClass? @relation(fields: [experienceClassId], references: [id])
+
+  @@index([challengeId])
+  @@index([userId])
+  @@index([verificationStatus]) // admin queue
+}
+
+// Challenge Points: top-50 placements per WEIGHT CLASS, awarded at finalization.
+// Cumulative & lifetime; the log is the source of truth, Profile.challengePointsTotal
+// is the denormalized sum. Unique constraint makes finalization idempotent — a user
+// belongs to exactly one weight class, so at most one row per (user, challenge).
+model ChallengePointsLog {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeId   String
+  challenge     Challenge      @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  weightClassId String
+  weightClass   WeightCategory @relation(fields: [weightClassId], references: [id])
+  placement     Int // 1–50
+  pointsAwarded Int // 50 for 1st … 1 for 50th
+  awardedAt     DateTime       @default(now())
+
+  @@unique([userId, challengeId, weightClassId])
+  @@index([userId])
+  @@index([challengeId])
+}
+
+// ---------- Friend groups (members-only) ----------
+
+model Group {
+  id         String        @id @default(cuid())
+  name       String
+  ownerId    String
+  owner      User          @relation("groupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  inviteCode String        @unique
+  createdAt  DateTime      @default(now())
+  members    GroupMember[]
+  invites    GroupInvite[]
+}
+
+model GroupMember {
+  id       String   @id @default(cuid())
+  groupId  String
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     String   @default("member") // owner / member
+  joinedAt DateTime @default(now())
+
+  @@unique([groupId, userId])
+}
+
+model GroupInvite {
+  id          String   @id @default(cuid())
+  groupId     String
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  invitedById String
+  invitedBy   User     @relation("inviter", fields: [invitedById], references: [id], onDelete: Cascade)
+  inviteeRef  String // username or email
+  status      String   @default("pending") // pending / accepted / declined
+  token       String   @unique
+  createdAt   DateTime @default(now())
+
+  @@index([status, inviteeRef])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // group_invite / invite_accepted / passed_on_board
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+}
+
+// ---------- Progression: avatars, badges, streaks, PRs ----------
+
+model Avatar {
+  id           String    @id @default(cuid())
+  name         String
+  assetRef     String // emoji glyph (image storage deferred)
+  unlockLevel  Int       @default(1)
+  displayOrder Int       @default(0)
+  profiles     Profile[]
+}
+
+model Badge {
+  id          String      @id @default(cuid())
+  code        String      @unique
+  name        String
+  description String      @default("")
+  icon        String      @default("🎖")
+  tier        String      @default("bronze") // bronze / silver / gold / platinum / special
+  category    String      @default("special") // podium / level / streak / pr / season
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId     String
+  badge       Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  challengeId String? // set for placement badges tied to a specific challenge
+  detail      String   @default("") // e.g. challenge title / class / milestone
+  awardedAt   DateTime @default(now())
+
+  @@unique([userId, badgeId, challengeId, detail])
+  @@index([userId])
+}
+
+model Streak {
+  userId         String    @id
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentStreak  Int       @default(0)
+  longestStreak  Int       @default(0)
+  freezeTokens   Int       @default(3)
+  lastActiveDate DateTime?
+}
+
+model PersonalRecord {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movement      String // e.g. "Barbell Bench Press · max_weight"
+  bestValue     Float
+  unitLabel     String   @default("")
+  challengeType String   @default("max_weight")
+  achievedAt    DateTime @default(now())
+  submissionId  String?
+
+  @@unique([userId, movement])
+}
