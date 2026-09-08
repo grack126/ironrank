@@ -5,7 +5,8 @@ import { TabBar } from "@/components/TabBar";
 import { TopBar } from "@/components/TopBar";
 import { Card, StatNumber } from "@/components/ui/primitives";
 import { RankingSelect } from "@/components/RankingSelect";
-import { SectionTitle, IconBoard, IconProfile } from "@/components/ui/icons";
+import { SectionTitle, IconBoard } from "@/components/ui/icons";
+import { Avatar } from "@/components/ui/Avatar";
 
 // Ranking types shown in the dropdown. Extensible — add an entry + a branch in
 // `orderBy`/`score` below to introduce a new board without reworking the UI.
@@ -86,7 +87,7 @@ export default async function LeaderboardPage({
                 <td className="rk">{r.rank}</td>
                 <td>
                   <div className="athlete-cell">
-                    <span className="avatar-sm" aria-hidden>{r.avatar?.assetRef ?? <IconProfile size={18} strokeWidth={2} />}</span>
+                    <Avatar assetRef={r.avatar?.assetRef} size={32} />
                     <div className="who">
                       <div style={{ fontWeight: 500 }}>{r.displayName}</div>
                       <div className="ti-meta">@{r.username}</div>
@@ -102,7 +103,7 @@ export default async function LeaderboardPage({
                 <td className="rk">{meRow.rank}</td>
                 <td>
                   <div className="athlete-cell">
-                    <span className="avatar-sm" aria-hidden>{meRow.avatar?.assetRef ?? <IconProfile size={18} strokeWidth={2} />}</span>
+                    <Avatar assetRef={meRow.avatar?.assetRef} size={32} />
                     <div className="who">
                       <div style={{ fontWeight: 500 }}>{meRow.displayName}</div>
                       <div className="ti-meta">@{meRow.username} · you</div>

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ProfileForm } from "@/components/ProfileForm";
 import { PasswordForm } from "@/components/PasswordForm";
+import { Avatar } from "@/components/ui/Avatar";
 import { TabBar } from "@/components/TabBar";
 import { TopBar } from "@/components/TopBar";
 import { RankBadge } from "@/components/ui/RankBadge";
@@ -88,9 +89,7 @@ export default async function ProfilePage() {
           <h1 style={{ marginBottom: 0 }}>{p.displayName}</h1>
           <p className="muted small">@{p.username}</p>
         </div>
-        <div style={{ fontSize: 44, lineHeight: 1 }}>
-          {avatarGlyph ?? <IconProfile className="i-accent" size={44} strokeWidth={1.75} aria-hidden />}
-        </div>
+        <Avatar assetRef={avatarGlyph} size={56} className="" />
       </div>
 
       <div className="card">

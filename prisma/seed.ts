@@ -74,12 +74,12 @@ async function main() {
 async function seedProgression() {
   await prisma.avatar.createMany({
     data: [
-      { name: "Rookie", assetRef: "🧍", unlockLevel: 1, displayOrder: 0 },
-      { name: "Lifter", assetRef: "🏋️", unlockLevel: 2, displayOrder: 1 },
-      { name: "Beast", assetRef: "💪", unlockLevel: 5, displayOrder: 2 },
-      { name: "Champion", assetRef: "🏆", unlockLevel: 10, displayOrder: 3 },
-      { name: "Titan", assetRef: "🦾", unlockLevel: 20, displayOrder: 4 },
-      { name: "Legend", assetRef: "👑", unlockLevel: 35, displayOrder: 5 },
+      { name: "Rookie", assetRef: "/avatars/rookie.svg", unlockLevel: 1, displayOrder: 0 },
+      { name: "Lifter", assetRef: "/avatars/lifter.svg", unlockLevel: 2, displayOrder: 1 },
+      { name: "Beast", assetRef: "/avatars/beast.svg", unlockLevel: 5, displayOrder: 2 },
+      { name: "Champion", assetRef: "/avatars/champion.svg", unlockLevel: 10, displayOrder: 3 },
+      { name: "Titan", assetRef: "/avatars/titan.svg", unlockLevel: 20, displayOrder: 4 },
+      { name: "Legend", assetRef: "/avatars/legend.svg", unlockLevel: 35, displayOrder: 5 },
     ],
   });
 

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { setAvatarAction } from "@/app/profile-actions";
 import { haptic } from "@/lib/haptics";
 import { IconLock } from "@/components/ui/icons";
+import { Avatar } from "@/components/ui/Avatar";
 
 export interface AvatarOption { id: string; name: string; assetRef: string; unlockLevel: number }
 
@@ -42,7 +43,7 @@ export function AvatarPicker({
             aria-label={`${a.name}${locked ? ` (unlocks at level ${a.unlockLevel})` : ""}`}
           >
             <span className="glyph" aria-hidden>
-              {locked ? <IconLock className="i-muted" size={26} strokeWidth={2} /> : a.assetRef}
+              {locked ? <IconLock className="i-muted" size={26} strokeWidth={2} /> : <Avatar assetRef={a.assetRef} size={40} className="" />}
             </span>
             <span className="nm">{a.name}</span>
             <span className="lv">{locked ? `Lv ${a.unlockLevel}` : selected ? "Selected" : "Tap to use"}</span>

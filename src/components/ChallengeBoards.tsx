@@ -4,6 +4,7 @@ import { buildBoard, type BoardSubmission } from "@/lib/leaderboard";
 import { isWeightBased, type ChallengeType } from "@/lib/shared/challenge";
 import { displayWeight, type Unit } from "@/lib/shared/units";
 import { IconVerified } from "@/components/ui/icons";
+import { Avatar } from "@/components/ui/Avatar";
 
 export interface ChallengeBoardsProps {
   submissions: BoardSubmission[];
@@ -109,7 +110,7 @@ export function ChallengeBoards({
                   <td className="rk">{r.rank}</td>
                   <td>
                     <div className="athlete-cell">
-                      <span className="avatar-sm" aria-hidden>{r.avatar}</span>
+                      <Avatar assetRef={r.avatar} size={32} />
                       <div className="who">
                         <div style={{ fontWeight: 500 }}>
                           {r.displayName}
@@ -129,7 +130,7 @@ export function ChallengeBoards({
                   <td className="rk">{myRow.rank}</td>
                   <td>
                     <div className="athlete-cell">
-                      <span className="avatar-sm" aria-hidden>{myRow.avatar}</span>
+                      <Avatar assetRef={myRow.avatar} size={32} />
                       <div className="who">
                         <div style={{ fontWeight: 500 }}>{myRow.displayName} · you</div>
                         <div className="ti-meta">@{myRow.username}</div>
