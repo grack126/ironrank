@@ -86,6 +86,16 @@ export default async function AdminHome() {
         </div>
       </Link>
 
+      <Link href="/admin/scores" className="card" style={{ display: "block" }}>
+        <div className="row between">
+          <div>
+            <h2 style={{ margin: 0 }}>Scores</h2>
+            <span className="small muted">Wipe an athlete&apos;s results, or reset the leaderboard</span>
+          </div>
+          <span className="pill">Open →</span>
+        </div>
+      </Link>
+
       <Link href="/admin/verification" className="card" style={{ display: "block" }}>
         <div className="row between">
           <div>
