@@ -5,11 +5,6 @@ import { prisma } from "@/lib/db";
 import { TopBar } from "@/components/TopBar";
 import { ChallengeForm } from "@/components/ChallengeForm";
 
-function toLocalInput(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 export default async function EditChallengePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getCurrentUser();
@@ -41,8 +36,8 @@ export default async function EditChallengePage({ params }: { params: Promise<{ 
             unitLabel: challenge.unitLabel,
             challengeType: challenge.challengeType,
             scoringType: challenge.scoringType,
-            startsAt: toLocalInput(challenge.startsAt),
-            endsAt: toLocalInput(challenge.endsAt),
+            startsAt: challenge.startsAt.toISOString(),
+            endsAt: challenge.endsAt.toISOString(),
             isDaily: challenge.isDaily,
             status: challenge.status,
             seasonId: challenge.seasonId,

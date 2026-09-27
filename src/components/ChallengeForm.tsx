@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { saveChallengeAction } from "@/app/admin/challenge-actions";
 import { uploadWorkoutImageAction } from "@/app/admin/upload-actions";
 import { SubmitButton } from "./SubmitButton";
@@ -27,7 +27,7 @@ export interface ChallengeInitial {
   unitLabel: string;
   challengeType: string;
   scoringType: string;
-  startsAt: string; // datetime-local value
+  startsAt: string; // UTC ISO instant
   endsAt: string;
   isDaily: boolean;
   status: string;
@@ -49,6 +49,21 @@ export function ChallengeForm({
   initial?: ChallengeInitial;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const startsRef = useRef<HTMLInputElement>(null);
+  const endsRef = useRef<HTMLInputElement>(null);
+
+  // Server-rendered dates are UTC; rewrite them to local wall-clock after mount
+  // so the admin edits the same clock time they see everywhere else.
+  useEffect(() => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const local = (iso: string) => {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return "";
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+    if (initial?.startsAt && startsRef.current) startsRef.current.value = local(initial.startsAt);
+    if (initial?.endsAt && endsRef.current) endsRef.current.value = local(initial.endsAt);
+  }, [initial?.startsAt, initial?.endsAt]);
   const [type, setType] = useState<ChallengeType>((initial?.challengeType as ChallengeType) ?? "max_weight");
   const [unit, setUnit] = useState(initial?.unitLabel ?? DEFAULT_UNIT.max_weight);
 
@@ -81,6 +96,13 @@ export function ChallengeForm({
 
   async function action(formData: FormData) {
     setError(null);
+    // datetime-local values carry no timezone, so the server would read them in
+    // its own zone (UTC on Vercel). Resolve them here, in the admin's zone.
+    for (const field of ["startsAt", "endsAt"]) {
+      const v = String(formData.get(field) ?? "");
+      const d = v ? new Date(v) : null;
+      if (d && !Number.isNaN(d.getTime())) formData.set(field, d.toISOString());
+    }
     const res = await saveChallengeAction(formData);
     if (res?.error) setError(res.error);
   }
@@ -187,11 +209,11 @@ export function ChallengeForm({
       <div className="grid2">
         <div>
           <label>Opens</label>
-          <input type="datetime-local" name="startsAt" defaultValue={initial?.startsAt ?? ""} required />
+          <input type="datetime-local" name="startsAt" ref={startsRef} defaultValue="" required />
         </div>
         <div>
           <label>Closes</label>
-          <input type="datetime-local" name="endsAt" defaultValue={initial?.endsAt ?? ""} required />
+          <input type="datetime-local" name="endsAt" ref={endsRef} defaultValue="" required />
         </div>
       </div>
 

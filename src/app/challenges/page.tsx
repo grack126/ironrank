@@ -8,7 +8,13 @@ import { MediaCard } from "@/components/ui/MediaCard";
 import { SectionTitle, IconChallenge, IconDaily } from "@/components/ui/icons";
 
 function timeLabel(now: Date, start: Date, end: Date): string {
-  if (now < start) return `Opens ${start.toLocaleDateString()}`;
+  if (now < start) {
+    const ms = start.getTime() - now.getTime();
+    if (ms >= 86400000) return `Opens ${start.toLocaleDateString()}`;
+    const hours = Math.floor(ms / 3600000);
+    if (hours > 0) return `Opens in ${hours}h`;
+    return `Opens in ${Math.max(1, Math.round(ms / 60000))} min`;
+  }
   if (now > end) return "Closed";
   const ms = end.getTime() - now.getTime();
   const days = Math.floor(ms / 86400000);
@@ -38,6 +44,10 @@ export default async function ChallengesPage() {
   const daily = live.filter((c) => c.isDaily);
   const standard = live.filter((c) => !c.isDaily);
   const closed = challenges.filter((c) => c.status === "closed" || now > c.endsAt);
+  // Published but not open yet — without this they would belong to no section at all.
+  const upcoming = challenges
+    .filter((c) => c.status === "published" && now < c.startsAt)
+    .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
 
   function Card({ c }: { c: (typeof challenges)[number] }) {
     const entered = c.submissions.length > 0;
@@ -70,6 +80,13 @@ export default async function ChallengesPage() {
         <p className="muted small">No open challenges right now.</p>
       ) : (
         standard.map((c) => <Card key={c.id} c={c} />)
+      )}
+
+      {upcoming.length > 0 && (
+        <>
+          <h2>Opening soon</h2>
+          {upcoming.map((c) => <Card key={c.id} c={c} />)}
+        </>
       )}
 
       {closed.length > 0 && (
