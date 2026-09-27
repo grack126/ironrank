@@ -17,24 +17,27 @@ export default async function WorkoutsPage({ searchParams }: { searchParams: Pro
 
   // ---- Category browse (default view) ----
   if (!cat) {
-    const categories = await prisma.workoutCategory.findMany({
-      where: { isActive: true },
-      orderBy: { displayOrder: "asc" },
-      include: {
-        _count: { select: { workouts: { where: { status: "published" } } } },
-        // A category has no image of its own, so borrow one of its workouts'.
-        workouts: {
-          where: { status: "published", backgroundImagePath: { not: null } },
-          select: { backgroundImagePath: true },
-          take: 1,
+    // Independent reads — one round-trip instead of three.
+    const [categories, total, anyImage] = await Promise.all([
+      prisma.workoutCategory.findMany({
+        where: { isActive: true },
+        orderBy: { displayOrder: "asc" },
+        include: {
+          _count: { select: { workouts: { where: { status: "published" } } } },
+          // A category has no image of its own, so borrow one of its workouts'.
+          workouts: {
+            where: { status: "published", backgroundImagePath: { not: null } },
+            select: { backgroundImagePath: true },
+            take: 1,
+          },
         },
-      },
-    });
-    const total = await prisma.workout.count({ where: { status: "published" } });
-    const anyImage = await prisma.workout.findFirst({
-      where: { status: "published", backgroundImagePath: { not: null } },
-      select: { backgroundImagePath: true },
-    });
+      }),
+      prisma.workout.count({ where: { status: "published" } }),
+      prisma.workout.findFirst({
+        where: { status: "published", backgroundImagePath: { not: null } },
+        select: { backgroundImagePath: true },
+      }),
+    ]);
 
     return (
       <>
@@ -69,18 +72,19 @@ export default async function WorkoutsPage({ searchParams }: { searchParams: Pro
   }
 
   // ---- Workouts within a category (or all) ----
-  const category = cat === "all" ? null : await prisma.workoutCategory.findUnique({ where: { id: cat } });
-  const workouts = await prisma.workout.findMany({
-    where: { status: "published", ...(cat === "all" ? {} : { categoryId: cat }) },
-    include: { _count: { select: { sets: true } } },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const myBest = await prisma.workoutAttempt.findMany({
-    where: { userId: user.id, status: "completed" },
-    include: { achievedRankTier: true },
-    orderBy: { totalPoints: "desc" },
-  });
+  const [category, workouts, myBest] = await Promise.all([
+    cat === "all" ? null : prisma.workoutCategory.findUnique({ where: { id: cat } }),
+    prisma.workout.findMany({
+      where: { status: "published", ...(cat === "all" ? {} : { categoryId: cat }) },
+      include: { _count: { select: { sets: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.workoutAttempt.findMany({
+      where: { userId: user.id, status: "completed" },
+      include: { achievedRankTier: true },
+      orderBy: { totalPoints: "desc" },
+    }),
+  ]);
   const bestByWorkout = new Map<string, (typeof myBest)[number]>();
   for (const a of myBest) if (!bestByWorkout.has(a.workoutId)) bestByWorkout.set(a.workoutId, a);
 

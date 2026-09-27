@@ -11,7 +11,7 @@ export default async function EditWorkoutPage({ params }: { params: Promise<{ id
   if (!user) redirect("/login");
   if (!user.isAdmin) redirect("/workouts");
 
-  const [workout, exercises, referenceLifts] = await Promise.all([
+  const [workout, exercises, referenceLifts, categories] = await Promise.all([
     prisma.workout.findUnique({
       where: { id },
       include: {
@@ -37,16 +37,15 @@ export default async function EditWorkoutPage({ params }: { params: Promise<{ id
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
+    // Active categories plus this workout's current one (even if archived).
+    prisma.workoutCategory.findMany({
+      where: { OR: [{ isActive: true }, { workouts: { some: { id } } }] },
+      orderBy: { displayOrder: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
 
   if (!workout) notFound();
-
-  // Active categories plus this workout's current one (even if archived).
-  const categories = await prisma.workoutCategory.findMany({
-    where: { OR: [{ isActive: true }, { id: workout.categoryId ?? "__none__" }] },
-    orderBy: { displayOrder: "asc" },
-    select: { id: true, name: true },
-  });
 
   return (
     <>

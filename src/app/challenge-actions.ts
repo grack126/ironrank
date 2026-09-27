@@ -71,16 +71,19 @@ export async function submitChallengeAttempt(
     },
   });
 
-  // Progression: streak activity + personal-record detection.
-  const { currentStreak } = await recordActivity(user.id);
-  const isPR = await detectPR({
-    userId: user.id,
-    movement: `${challenge.exercise.name} · ${challenge.challengeType}`,
-    value: d.rawValue,
-    unitLabel: challenge.unitLabel,
-    challengeType: challenge.challengeType,
-    submissionId: submission.id,
-  });
+  // Progression: streak activity + personal-record detection. They touch
+  // disjoint rows (Streak vs PersonalRecord), so run them together.
+  const [{ currentStreak }, isPR] = await Promise.all([
+    recordActivity(user.id),
+    detectPR({
+      userId: user.id,
+      movement: `${challenge.exercise.name} · ${challenge.challengeType}`,
+      value: d.rawValue,
+      unitLabel: challenge.unitLabel,
+      challengeType: challenge.challengeType,
+      submissionId: submission.id,
+    }),
+  ]);
 
   revalidatePath(`/challenges/${challengeId}`);
   revalidatePath("/challenges");

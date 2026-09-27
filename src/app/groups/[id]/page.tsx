@@ -23,26 +23,25 @@ export default async function GroupDetail({
   if (!user.profile) redirect("/onboarding");
   const unit = (user.profile.preferredUnits as Unit) || "kg";
 
-  // Membership gate (RLS stand-in): non-members can't read the group at all.
-  const membership = await prisma.groupMember.findUnique({
-    where: { groupId_userId: { groupId: id, userId: user.id } },
-  });
-  if (!membership) notFound();
-
-  const group = await prisma.group.findUnique({
-    where: { id },
-    include: { members: { include: { user: { select: { id: true, profile: true } } }, orderBy: { joinedAt: "asc" } } },
-  });
-  if (!group) notFound();
-
-  const isOwner = group.ownerId === user.id;
-  const memberIds = group.members.map((m) => m.userId);
-
-  const [challenges, weightClasses, experienceClasses] = await Promise.all([
+  // One parallel round-trip. The membership gate (RLS stand-in) is still enforced
+  // before anything is rendered: non-members get a 404 and never see the group.
+  const [membership, group, challenges, weightClasses, experienceClasses] = await Promise.all([
+    prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId: id, userId: user.id } },
+    }),
+    prisma.group.findUnique({
+      where: { id },
+      include: { members: { include: { user: { select: { id: true, profile: true } } }, orderBy: { joinedAt: "asc" } } },
+    }),
     prisma.challenge.findMany({ where: { status: "published" }, orderBy: { endsAt: "desc" }, select: { id: true, title: true, challengeType: true, scoringType: true, unitLabel: true } }),
     prisma.weightCategory.findMany({ where: { isActive: true }, orderBy: { displayOrder: "asc" }, select: { id: true, name: true } }),
     prisma.experienceClass.findMany({ where: { isActive: true }, orderBy: { displayOrder: "asc" }, select: { id: true, name: true } }),
   ]);
+  if (!membership) notFound();
+  if (!group) notFound();
+
+  const isOwner = group.ownerId === user.id;
+  const memberIds = group.members.map((m) => m.userId);
 
   const selected = challenges.find((ch) => ch.id === c) ?? challenges[0] ?? null;
 

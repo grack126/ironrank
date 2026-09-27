@@ -21,39 +21,44 @@ export default async function WorkoutDetail({ params }: { params: Promise<{ id: 
   if (!user.profile) redirect("/onboarding");
   const unit = (user.profile.preferredUnits as Unit) || "kg";
 
-  const workout = await prisma.workout.findUnique({
-    where: { id },
-    include: {
-      referenceLifts: { include: { referenceLift: true }, orderBy: { displayOrder: "asc" } },
-      rankTiers: { orderBy: { minPoints: "asc" } },
-      sets: {
-        orderBy: { setOrder: "asc" },
-        include: {
-          points: true,
-          parts: {
-            orderBy: { partOrder: "asc" },
-            include: { exercise: true, referenceLift: true, percentages: true },
+  // Everything below depends only on the route id and the user, so fetch it in
+  // one parallel round-trip rather than four sequential ones.
+  const [workout, userRefs, lastAttempt, attemptlessFeedback] = await Promise.all([
+    prisma.workout.findUnique({
+      where: { id },
+      include: {
+        referenceLifts: { include: { referenceLift: true }, orderBy: { displayOrder: "asc" } },
+        rankTiers: { orderBy: { minPoints: "asc" } },
+        sets: {
+          orderBy: { setOrder: "asc" },
+          include: {
+            points: true,
+            parts: {
+              orderBy: { partOrder: "asc" },
+              include: { exercise: true, referenceLift: true, percentages: true },
+            },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.userReferenceLift.findMany({ where: { userId: user.id } }),
+    // Feedback hangs off the athlete's most recent completed attempt, so revisiting
+    // the workout shows "Feedback submitted" rather than the form again.
+    prisma.workoutAttempt.findFirst({
+      where: { userId: user.id, workoutId: id, status: "completed" },
+      orderBy: { completedAt: "desc" },
+      select: { id: true, feedback: { where: { userId: user.id }, select: { id: true }, take: 1 } },
+    }),
+    // Used only when the athlete has no completed attempt yet.
+    prisma.workoutFeedback.findFirst({
+      where: { userId: user.id, workoutId: id, workoutAttemptId: null },
+      select: { id: true },
+    }),
+  ]);
   if (!workout || workout.status !== "published") notFound();
 
-  const userRefs = await prisma.userReferenceLift.findMany({ where: { userId: user.id } });
   const refMap = new Map(userRefs.map((r) => [r.referenceLiftId, r.weightKg]));
-
-  // Feedback hangs off the athlete's most recent completed attempt, so revisiting
-  // the workout shows "Feedback submitted" rather than the form again.
-  const lastAttempt = await prisma.workoutAttempt.findFirst({
-    where: { userId: user.id, workoutId: workout.id, status: "completed" },
-    orderBy: { completedAt: "desc" },
-    select: { id: true },
-  });
-  const existingFeedback = await prisma.workoutFeedback.findFirst({
-    where: { userId: user.id, workoutId: workout.id, workoutAttemptId: lastAttempt?.id ?? null },
-    select: { id: true },
-  });
+  const existingFeedback = lastAttempt ? lastAttempt.feedback[0] ?? null : attemptlessFeedback;
 
   const runnerData: RunnerData = {
     workoutId: workout.id,

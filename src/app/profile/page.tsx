@@ -31,7 +31,7 @@ export default async function ProfilePage() {
   const p = user.profile;
   const unit = (p.preferredUnits as Unit) || "kg";
 
-  const [classProfile, weightClasses, experienceClasses, avatars, streak, mySubs, pointsLog] = await Promise.all([
+  const [classProfile, weightClasses, experienceClasses, avatars, streak, mySubs, pointsLog, attempts] = await Promise.all([
     prisma.profile.findUnique({ where: { userId: user.id }, include: { weightClass: true, experienceClass: true, avatar: true } }),
     prisma.weightCategory.findMany({ where: { isActive: true }, orderBy: { displayOrder: "asc" }, select: { id: true, name: true, gender: true } }),
     prisma.experienceClass.findMany({ where: { isActive: true }, orderBy: { displayOrder: "asc" }, select: { id: true, name: true } }),
@@ -48,6 +48,12 @@ export default async function ProfilePage() {
       where: { userId: user.id },
       include: { weightClass: { select: { name: true } } },
     }),
+    // Best completed attempt per workout -> the rank shown on the profile.
+    prisma.workoutAttempt.findMany({
+      where: { userId: user.id, status: "completed" },
+      include: { workout: { select: { title: true } }, achievedRankTier: true },
+      orderBy: [{ totalPoints: "desc" }],
+    }),
   ]);
   const expName = classProfile?.experienceClass?.name ?? "—";
   const weightName = classProfile?.weightClass?.name ?? "—";
@@ -55,12 +61,6 @@ export default async function ProfilePage() {
   const avatarGlyph = classProfile?.avatar?.assetRef ?? null;
   const { into, span } = xpIntoLevel(p.xp);
 
-  // Best completed attempt per workout -> the rank shown on the profile.
-  const attempts = await prisma.workoutAttempt.findMany({
-    where: { userId: user.id, status: "completed" },
-    include: { workout: true, achievedRankTier: true },
-    orderBy: [{ totalPoints: "desc" }],
-  });
   const bestByWorkout = new Map<string, (typeof attempts)[number]>();
   for (const a of attempts) {
     if (!bestByWorkout.has(a.workoutId)) bestByWorkout.set(a.workoutId, a);

@@ -7,6 +7,10 @@ generator client {
   // "native" for local dev; the rhel target is the engine Vercel's serverless
   // runtime needs — without it the client can't find a query engine in production.
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  // Resolve nested `include`s with one SQL query (LATERAL joins) instead of one
+  // query per relation level. Each level was a full round-trip to the database —
+  // e.g. getCurrentUser() ran 6 statements on every page.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
