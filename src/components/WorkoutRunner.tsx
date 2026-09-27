@@ -13,6 +13,7 @@ import { RankReveal } from "./RankReveal";
 import { RankBadge } from "./ui/RankBadge";
 import { haptic } from "@/lib/haptics";
 import { IconCheck, IconX, IconTune, IconPlay, IconChevron, IconChevronUp } from "@/components/ui/icons";
+import { WorkoutFeedbackCard } from "./WorkoutFeedbackCard";
 
 type Triple = { easy: number; hard: number; brutal: number };
 
@@ -101,7 +102,17 @@ function groupSets(sets: RunnerSet[]): ExerciseGroup[] {
   return out;
 }
 
-export function WorkoutRunner({ data }: { data: RunnerData }) {
+export function WorkoutRunner({
+  data,
+  feedbackAttemptId = null,
+  feedbackSubmitted = false,
+}: {
+  data: RunnerData;
+  /** Most recent completed attempt, so feedback attaches to a real attempt. */
+  feedbackAttemptId?: string | null;
+  /** Whether that attempt already has feedback from this user. */
+  feedbackSubmitted?: boolean;
+}) {
   const storageKey = `ironrank-progress-${data.workoutId}`;
 
   const [refMap, setRefMap] = useState<Record<string, number | null>>(
@@ -223,14 +234,17 @@ export function WorkoutRunner({ data }: { data: RunnerData }) {
     }
     const rankIndex = result.rankName ? Math.max(0, data.rankTiers.findIndex((t) => t.name === result.rankName)) : 0;
     return (
-      <RankReveal
-        rankName={result.rankName}
-        rankIndex={rankIndex}
-        totalPoints={result.totalPoints}
-        maxPoints={maxPts}
-        isBest={result.isBest}
-        onRetry={reset}
-      />
+      <>
+        <RankReveal
+          rankName={result.rankName}
+          rankIndex={rankIndex}
+          totalPoints={result.totalPoints}
+          maxPoints={maxPts}
+          isBest={result.isBest}
+          onRetry={reset}
+        />
+        <WorkoutFeedbackCard workoutId={data.workoutId} workoutAttemptId={result.attemptId} />
+      </>
     );
   }
 
@@ -372,6 +386,13 @@ export function WorkoutRunner({ data }: { data: RunnerData }) {
           </div>
         </div>
       </div>
+
+      {/* Feedback — below the XP bar, inline and optional */}
+      <WorkoutFeedbackCard
+        workoutId={data.workoutId}
+        workoutAttemptId={feedbackAttemptId}
+        alreadySubmitted={feedbackSubmitted}
+      />
     </div>
   );
 }

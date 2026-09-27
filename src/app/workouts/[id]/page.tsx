@@ -43,6 +43,18 @@ export default async function WorkoutDetail({ params }: { params: Promise<{ id: 
   const userRefs = await prisma.userReferenceLift.findMany({ where: { userId: user.id } });
   const refMap = new Map(userRefs.map((r) => [r.referenceLiftId, r.weightKg]));
 
+  // Feedback hangs off the athlete's most recent completed attempt, so revisiting
+  // the workout shows "Feedback submitted" rather than the form again.
+  const lastAttempt = await prisma.workoutAttempt.findFirst({
+    where: { userId: user.id, workoutId: workout.id, status: "completed" },
+    orderBy: { completedAt: "desc" },
+    select: { id: true },
+  });
+  const existingFeedback = await prisma.workoutFeedback.findFirst({
+    where: { userId: user.id, workoutId: workout.id, workoutAttemptId: lastAttempt?.id ?? null },
+    select: { id: true },
+  });
+
   const runnerData: RunnerData = {
     workoutId: workout.id,
     title: workout.title,
@@ -86,7 +98,11 @@ export default async function WorkoutDetail({ params }: { params: Promise<{ id: 
   return (
     <>
       <TopBar right={<Link href="/workouts" className="pill">← Workouts</Link>} />
-      <WorkoutRunner data={runnerData} />
+      <WorkoutRunner
+        data={runnerData}
+        feedbackAttemptId={lastAttempt?.id ?? null}
+        feedbackSubmitted={!!existingFeedback}
+      />
     </>
   );
 }

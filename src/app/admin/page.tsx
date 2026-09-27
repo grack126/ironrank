@@ -11,13 +11,14 @@ export default async function AdminHome() {
   if (!user) redirect("/login");
   if (!user.isAdmin) redirect("/workouts");
 
-  const [exercises, refs, workouts, published, challenges, pending] = await Promise.all([
+  const [exercises, refs, workouts, published, challenges, pending, unreadFeedback] = await Promise.all([
     prisma.exerciseLibrary.count(),
     prisma.referenceLift.count(),
     prisma.workout.count(),
     prisma.workout.count({ where: { status: "published" } }),
     prisma.challenge.count(),
     prisma.submission.count({ where: { verificationStatus: "pending" } }),
+    prisma.workoutFeedback.count({ where: { isRead: false } }),
   ]);
 
   return (
@@ -93,6 +94,18 @@ export default async function AdminHome() {
             <span className="small muted">Wipe an athlete&apos;s results, or reset the leaderboard</span>
           </div>
           <span className="pill">Open →</span>
+        </div>
+      </Link>
+
+      <Link href="/admin/feedback" className="card" style={{ display: "block" }}>
+        <div className="row between">
+          <div>
+            <h2 style={{ margin: 0 }}>Feedback</h2>
+            <span className="small muted">Workout difficulty ratings & bug reports from athletes</span>
+          </div>
+          <span className={`pill ${unreadFeedback > 0 ? "accent" : ""}`}>
+            {unreadFeedback > 0 ? `${unreadFeedback} unread` : "Clear"}
+          </span>
         </div>
       </Link>
 

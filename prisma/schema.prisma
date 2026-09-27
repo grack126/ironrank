@@ -40,6 +40,7 @@ model User {
   streak          Streak?
   personalRecords PersonalRecord[]
   challengePoints ChallengePointsLog[]
+  workoutFeedback WorkoutFeedback[]
 }
 
 model Session {
@@ -153,6 +154,7 @@ model Workout {
   sets           WorkoutSet[]
   rankTiers      WorkoutRankTier[]
   attempts       WorkoutAttempt[]
+  feedback       WorkoutFeedback[]
 
   @@index([status])
 }
@@ -253,6 +255,7 @@ model WorkoutAttempt {
   achievedRankTier   WorkoutRankTier? @relation(fields: [achievedRankTierId], references: [id])
   status             String           @default("in_progress") // in_progress / completed / abandoned
   results            WorkoutSetResult[]
+  feedback           WorkoutFeedback[]
 
   @@index([userId, status]) // hot path: profile + workouts best-per-workout
   @@index([workoutId])
@@ -501,4 +504,28 @@ model PersonalRecord {
   submissionId  String?
 
   @@unique([userId, movement])
+}
+
+// Athlete feedback on a workout — difficulty calibration + bug reports.
+// One row per attempt (the unique below); attempts are optional so feedback can
+// also be left by someone who has not finished the workout yet.
+model WorkoutFeedback {
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutId        String
+  workout          Workout         @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  workoutAttemptId String?
+  workoutAttempt   WorkoutAttempt? @relation(fields: [workoutAttemptId], references: [id], onDelete: SetNull)
+  difficultyRating String          // too_easy / just_right / too_hard
+  feedbackType     String          @default("general") // general / bug_report
+  comment          String?
+  isRead           Boolean         @default(false) // admin triage
+  createdAt        DateTime        @default(now())
+
+  // One submission per attempt. Postgres treats NULLs as distinct, so feedback
+  // left without an attempt is additionally guarded in submitWorkoutFeedback().
+  @@unique([userId, workoutAttemptId])
+  @@index([isRead, createdAt])
+  @@index([workoutId])
 }

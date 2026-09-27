@@ -815,3 +815,34 @@ table.grid-edit input { padding: 9px 10px; min-height: 40px; }
   * { animation: none !important; transition: none !important; }
   .reveal-medal .sheen-sweep { display: none; }
 }
+
+/* ---------- Workout feedback (athlete side) ----------
+   Inline card at the foot of a workout — deliberately quiet: no modal, no
+   colour beyond the accent on the active choice. */
+.fb-card { margin-top: var(--s-4); }
+.fb-title { margin: 0 0 var(--s-3); }
+/* Ratings reuse .diff-btn, but with one line of text they need less height. */
+.diff-btn.fb-rate { min-height: 52px; padding: 12px 6px; }
+.diff-btn.fb-rate .d-name { text-transform: none; letter-spacing: 0.01em; }
+.fb-types { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.fb-type { cursor: pointer; border: 1px solid var(--border); font: inherit; font-size: var(--fs-12); }
+.fb-done { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--fs-14); color: var(--text-muted); }
+
+/* ---------- Workout feedback (admin triage) ---------- */
+.fb-filters { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); }
+.fb-row { display: flex; gap: var(--s-3); padding: var(--s-3) 0; border-bottom: 1px solid var(--border); }
+.fb-row:last-child { border-bottom: none; }
+.fb-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex: 0 0 8px; background: transparent; }
+.fb-row.unread .fb-dot { background: var(--accent); }
+.fb-row.unread .fb-head { font-weight: 700; }
+.fb-body { flex: 1 1 auto; min-width: 0; }
+.fb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: var(--fs-14); }
+.fb-meta { font-family: var(--font-m); font-size: var(--fs-12); color: var(--text-faint); margin-top: 2px; }
+.fb-comment { font-size: var(--fs-14); color: var(--text-muted); margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fb-rating { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-m); font-size: var(--fs-12); }
+.fb-rating .swatch { width: 9px; height: 9px; border-radius: 2px; }
+.fb-count { min-width: 20px; }
+.link-btn {
+  background: none; border: none; padding: 0; font: inherit;
+  color: var(--success); text-decoration: underline; cursor: pointer;
+}

@@ -29,6 +29,10 @@ import {
   Eye,
   EyeOff,
   Trash2,
+  MessageSquare,
+  Bug,
+  MailOpen,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 
@@ -64,6 +68,10 @@ export const IconChevronUp = ChevronUp;
 export const IconEye = Eye;
 export const IconEyeOff = EyeOff;
 export const IconDelete = Trash2;
+export const IconFeedback = MessageSquare;
+export const IconBug = Bug;
+export const IconRead = MailOpen;
+export const IconUnread = Mail;
 
 /**
  * Section heading with a themed accent icon (lime), used for every h1/h2 that
