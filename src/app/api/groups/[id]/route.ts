@@ -70,7 +70,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       profileBodyweightKg: s.user.profile?.bodyweightKg ?? null,
       weightClassId: s.weightClassId,
       experienceClassId: s.experienceClassId,
-      avatar: s.user.profile?.avatar?.assetRef ?? "🧍",
+      avatar: s.user.profile?.avatar?.assetRef ?? null,
     }));
   }
 

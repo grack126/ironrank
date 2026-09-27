@@ -58,7 +58,7 @@ export async function GET(req: Request) {
       experienceClass: classProfile?.experienceClass?.name ?? null,
       weightClassId: classProfile?.weightClassId ?? null,
       experienceClassId: classProfile?.experienceClassId ?? null,
-      avatar: classProfile?.avatar?.assetRef ?? "🧍",
+      avatar: classProfile?.avatar?.assetRef ?? null,
       avatarId: classProfile?.avatarId ?? null,
     },
     streak: {

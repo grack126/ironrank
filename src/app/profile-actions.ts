@@ -92,12 +92,19 @@ export async function saveProfileAction(
     preferredUnits: d.preferredUnits,
   };
 
+  // New athletes start on the entry-level avatar rather than no avatar at all.
+  const starter = await prisma.avatar.findFirst({
+    orderBy: [{ unlockLevel: "asc" }, { displayOrder: "asc" }],
+    select: { id: true },
+  });
+
   await prisma.profile.upsert({
     where: { userId: user.id },
     update: data,
     create: {
       userId: user.id,
       username: user.profile?.username ?? `lifter_${user.id.slice(0, 6)}`,
+      avatarId: starter?.id ?? null,
       ...data,
     },
   });

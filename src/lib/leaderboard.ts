@@ -17,7 +17,7 @@ export interface BoardSubmission {
   profileBodyweightKg: number | null;
   weightClassId: string | null;
   experienceClassId: string | null;
-  avatar?: string; // avatar glyph; optional so non-board callers needn't populate it
+  avatar?: string | null; // avatar assetRef; optional so non-board callers needn't populate it
 }
 
 export interface BoardRow {
@@ -30,7 +30,7 @@ export interface BoardRow {
   comparable: number;
   verificationStatus: string;
   videoUrl: string | null;
-  avatar: string;
+  avatar: string | null;
 }
 
 export type BoardView = "absolute" | "relative";
@@ -76,7 +76,7 @@ export function buildBoard(
         comparable,
         verificationStatus: s.verificationStatus,
         videoUrl: s.videoUrl,
-        avatar: s.avatar ?? "🧍",
+        avatar: s.avatar ?? null,
       });
     }
   }

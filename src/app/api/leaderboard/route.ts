@@ -44,7 +44,7 @@ export async function GET(req: Request) {
       username: r.username,
       level: r.level,
       score: score(r),
-      avatar: r.avatar?.assetRef ?? "🧍",
+      avatar: r.avatar?.assetRef ?? null,
     })),
   });
 }
